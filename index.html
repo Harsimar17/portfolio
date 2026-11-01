@@ -207,17 +207,23 @@ a{color:var(--link)}
 .sm-item:hover,.sm-item:focus-visible{background:var(--sel);color:#fff;outline:none}
 .sm-sep{height:2px;margin:3px 4px;border-top:1px solid var(--sh);border-bottom:1px solid var(--hi)}
 
-/* phones: stacked cards, page scrolls */
+/* phones: fixed desktop of icons; a window opens full-screen above the taskbar and is the only thing that scrolls */
 @media (max-width:760px){
-  body{overflow:auto}
-  .desktop{height:auto;min-height:100%;overflow:visible;padding:12px max(12px,env(safe-area-inset-right,0px)) calc(var(--tb) + 24px + env(safe-area-inset-bottom,0px)) max(12px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:14px}
+  body{overflow:hidden;position:fixed;inset:0}
+  .desktop{height:calc(100% - var(--tb) - env(safe-area-inset-bottom,0px));overflow-y:auto;overscroll-behavior:contain;padding:16px max(16px,env(safe-area-inset-right,0px)) 16px max(16px,env(safe-area-inset-left,0px));display:flex;flex-direction:column;gap:18px}
   .watermark{position:static;text-align:left;order:-2}
   .watermark b{font-size:26px}
-  .icons{position:static;grid-template-columns:repeat(3,minmax(0,1fr));order:-1;gap:4px}
-  .icon{width:auto}
-  .win{position:relative!important;left:auto!important;top:auto!important;width:auto!important;height:auto!important;max-width:100%;max-height:none}
-  .win .wbody{max-height:70vh}
-  .win[data-app="resume"] .wbody{max-height:80vh}
+  .icons{position:static;grid-template-columns:repeat(3,minmax(0,1fr));order:-1;gap:8px 4px}
+  .icon{width:auto;min-height:72px}
+  .win,.win.max{position:fixed!important;left:max(0px,env(safe-area-inset-left,0px))!important;right:max(0px,env(safe-area-inset-right,0px))!important;top:env(safe-area-inset-top,0px)!important;bottom:calc(var(--tb) + env(safe-area-inset-bottom,0px))!important;width:auto!important;height:auto!important;max-width:none;max-height:none;border-radius:0}
+  .win .wbody,.win[data-app] .wbody{max-height:none;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch}
+  .win .detail,.win .docarea{overflow:visible;height:auto}
+  .titlebar{min-height:40px}
+  .tbtn{min-width:32px;min-height:28px}
+  input,select,textarea{font-size:16px!important}
+  .task{flex:0 0 auto;min-width:44px;max-width:150px}
+  .tasks:has(.task:nth-child(3)) .task{justify-content:center;padding:2px 10px}
+  .tasks:has(.task:nth-child(3)) .task span{display:none}
   .titlebar{cursor:default}
   .tbtn.mx{display:none}
   .explorer{grid-template-columns:1fr;height:auto}
@@ -989,8 +995,8 @@ input,textarea,[contenteditable]{cursor:text}
     var s = document.createElement('span'); s.textContent = w.dataset.title; b.appendChild(s);
     b.addEventListener('click', function(){
       if(w.hidden){ w.hidden=false; focusWin(w); }
-      else if(w.classList.contains('active') && !mobile()){ w.hidden=true; w.classList.remove('active'); b.classList.remove('on'); }
-      else { focusWin(w); if(mobile()) w.scrollIntoView({behavior:'smooth',block:'start'}); }
+      else if(w.classList.contains('active')){ w.hidden=true; w.classList.remove('active'); b.classList.remove('on'); if(mobile()) w.dataset.min='1'; focusTop(); }
+      else { focusWin(w); }
     });
     tasks.appendChild(b);
     return b;
@@ -1000,10 +1006,7 @@ input,textarea,[contenteditable]{cursor:text}
     if(!mobile()) place(w);
     var wasHidden = w.hidden;
     w.hidden = false; delete w.dataset.min; taskBtn(app); focusWin(w);
-    if(mobile() && !(opts && opts.quiet)){
-      if(wasHidden){ desktop.appendChild(w); }
-      w.scrollIntoView({behavior:'smooth',block:'start'});
-    }
+    if(mobile() && wasHidden){ var wb = w.querySelector('.wbody'); if(wb) wb.scrollTop = 0; }
   }
   function close(app){
     var w = wins[app]; w.hidden = true; w.classList.remove('active','max'); delete w.dataset.min;
@@ -1024,7 +1027,6 @@ input,textarea,[contenteditable]{cursor:text}
     w.querySelector('.cl').addEventListener('click', function(e){ e.stopPropagation(); close(app); });
     w.querySelector('.mn').addEventListener('click', function(e){
       e.stopPropagation();
-      if(mobile()){ close(app); return; }
       w.hidden = true; w.classList.remove('active'); w.dataset.min='1';
       var b = tasks.querySelector('[data-app="'+app+'"]'); if(b) b.classList.remove('on');
       focusTop();
@@ -1063,7 +1065,8 @@ input,textarea,[contenteditable]{cursor:text}
       t.classList.add('sel'); t.setAttribute('aria-selected','true');
       document.querySelectorAll('#proj-detail [data-pane]').forEach(function(p){ p.hidden = p.dataset.pane !== t.dataset.proj; });
       document.getElementById('proj-path').textContent = 'C:\\Harsimar\\Projects\\' + paths[t.dataset.proj]; var ft=document.getElementById('finder-title'); if(ft) ft.textContent = t.textContent.trim();
-      document.getElementById('proj-detail').scrollTop = 0;
+      var pd = document.getElementById('proj-detail'); pd.scrollTop = 0;
+      if(mobile() && t.isConnected && !wins.projects.hidden) pd.scrollIntoView({block:'start'});
     });
   });
 
@@ -1142,8 +1145,8 @@ input,textarea,[contenteditable]{cursor:text}
       set('resume', rx, ry, rw, rh);
       set('projects', px, py, pw, ph);
     }
-    var initial = ['resume','projects'];
-    initial.forEach(function(a){ open(a, {quiet:true}); });
+    // phones start on the bare desktop, like a real one; tap an icon to open a window
+    if(!mobile()) ['resume','projects'].forEach(function(a){ open(a, {quiet:true}); });
     if(h && wins[h]){ open(h, {quiet: !mobile()}); }
   }
   boot();
